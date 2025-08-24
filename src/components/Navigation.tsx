@@ -19,7 +19,7 @@ const Navigation = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-gradient">FitCoach</h1>
+            <h1 className="text-2xl font-bold text-gradient">COACH</h1>
           </div>
 
           {/* Desktop Navigation */}
@@ -39,13 +39,17 @@ const Navigation = () => {
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
-              <User className="w-4 h-4 mr-2" />
-              Login
+            <Button variant="ghost" size="sm" asChild>
+              <a href="/auth">
+                <User className="w-4 h-4 mr-2" />
+                Login
+              </a>
             </Button>
-            <Button className="btn-hero">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Start Chat
+            <Button className="btn-hero" asChild>
+              <a href="/auth">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Start Chat
+              </a>
             </Button>
           </div>
 
@@ -81,13 +85,17 @@ const Navigation = () => {
               </a>
             ))}
             <div className="pt-4 space-y-2">
-              <Button variant="ghost" className="w-full justify-start">
-                <User className="w-4 h-4 mr-2" />
-                Login
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <a href="/auth">
+                  <User className="w-4 h-4 mr-2" />
+                  Login
+                </a>
               </Button>
-              <Button className="w-full btn-hero">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Start Chat
+              <Button className="w-full btn-hero" asChild>
+                <a href="/auth">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Start Chat
+                </a>
               </Button>
             </div>
           </div>
