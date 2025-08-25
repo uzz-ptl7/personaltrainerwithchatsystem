@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, User, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -13,6 +13,18 @@ const Navigation = () => {
     { name: "Contact", href: "#contact" },
   ];
 
+  // Disable body scroll when menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMenuOpen]);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,8 +34,8 @@ const Navigation = () => {
             <h1 className="text-2xl font-bold text-gradient">COACH</h1>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
+          {/* Desktop Navigation (hidden always) */}
+          <div className="hidden lg:block">
             <div className="ml-10 flex items-baseline space-x-8">
               {navItems.map((item) => (
                 <a
@@ -37,8 +49,8 @@ const Navigation = () => {
             </div>
           </div>
 
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Auth Buttons (hidden always except large screens) */}
+          <div className="hidden lg:flex items-center space-x-4">
             <Button variant="ghost" size="sm" asChild>
               <a href="/auth">
                 <User className="w-4 h-4 mr-2" />
@@ -53,8 +65,8 @@ const Navigation = () => {
             </Button>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
+          {/* Mobile & Medium menu button */}
+          <div className="lg:hidden">
             <Button
               variant="ghost"
               size="sm"
@@ -72,8 +84,8 @@ const Navigation = () => {
 
       {/* Mobile Navigation Menu */}
       {isMenuOpen && (
-        <div className="md:hidden animate-slide-in-right">
-          <div className="px-2 pt-2 pb-3 space-y-1 bg-background/95 backdrop-blur-lg border-b border-border">
+        <div className="lg:hidden animate-slide-in-right">
+          <div className="px-2 pt-2 pb-3 space-y-1 bg-background/95 backdrop-blur-lg border-b border-border h-screen overflow-y-auto">
             {navItems.map((item) => (
               <a
                 key={item.name}

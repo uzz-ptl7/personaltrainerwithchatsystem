@@ -96,7 +96,7 @@ const Services = () => {
             <p className="text-muted-foreground mb-6">
               Connect with me through our chat system to discuss your goals and create your personalized fitness plan.
             </p>
-            <button className="btn-hero">
+            <button className="bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-xl shadow-lg transition-all duration-700 hover:scale-105 hover:shadow-2xl text-lg px-4 py-2">
               Start Your Consultation
             </button>
           </div>

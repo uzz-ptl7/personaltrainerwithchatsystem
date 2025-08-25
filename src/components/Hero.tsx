@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 const Hero = () => {
   return (
-    <section id="home" className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
+    <section id="home" className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16 mt-[50px]">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted opacity-50"></div>
       <div className="absolute top-20 left-20 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse-glow"></div>
@@ -32,7 +32,7 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Button className="btn-hero text-lg px-8 py-4 group">
+            <Button className="bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-xl shadow-lg transition-all duration-700 hover:scale-105 hover:shadow-2xl text-lg px-8 py-4 group">
               Start Your Journey
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
@@ -44,7 +44,7 @@ const Hero = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto mb-[50px]">
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold text-gradient mb-2">500+</div>
               <div className="text-muted-foreground">Clients Transformed</div>

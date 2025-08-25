@@ -36,7 +36,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Brand Section */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold text-gradient">FitCoach</h3>
+            <h3 className="text-2xl font-bold text-gradient">Coach</h3>
             <p className="text-muted-foreground">
               Transform your body and elevate your life with personalized training, 
               nutrition guidance, and 24/7 support through our revolutionary chat system.
@@ -99,17 +99,7 @@ const Footer = () => {
               Get fitness tips and updates delivered to your inbox.
             </p>
             <div className="space-y-3">
-              <div className="flex">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-2 bg-input border border-border rounded-l-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <button className="px-4 py-2 bg-primary text-primary-foreground rounded-r-xl hover:bg-accent transition-colors">
-                  Subscribe
-                </button>
-              </div>
-              <button className="w-full btn-hero flex items-center justify-center">
+              <button className="w-full flex items-center justify-center bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-xl shadow-lg shadow-accent/30 hover:shadow-accent/30 transition-all duration-700 hover:shadow-xl text-lg px-6 py-2">
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Start Chat Now
               </button>
@@ -117,38 +107,34 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Section */}
-        <div className="border-t border-border pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            {/* Copyright */}
-            <div className="flex items-center space-x-2">
-              <span className="text-muted-foreground">
-                © 2024 FitCoach. Made with
-              </span>
-              <Heart className="w-4 h-4 text-red-500 fill-current" />
-              <span className="text-muted-foreground">for your fitness journey.</span>
-            </div>
-
-            {/* Legal Links */}
-            <div className="flex space-x-6">
-              {footerLinks.legal.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors duration-200"
-                >
-                  {link.name}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Additional Info */}
-          <div className="mt-8 p-4 bg-secondary/30 rounded-xl border border-border/50">
+        {/* Additional Info */}
+          <div className="mt-8 p-4 bg-secondary/30 rounded-xl border border-border/50 mb-2">
             <p className="text-sm text-muted-foreground text-center">
               <strong>24/7 Chat Support Available:</strong> Get instant answers to your fitness questions, 
               form checks, motivation, and guidance whenever you need it through our integrated chat system.
             </p>
+          </div>
+
+        {/* Bottom Section */}
+        <div className="py-6 border-t border-border">
+          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+            <div className="text-muted-foreground text-sm">
+              © 2025 Coach. All rights reserved.
+            </div>
+            
+            <div className="flex items-center space-x-4 text-sm">
+              <p className="text-muted-foreground mx-2">
+                Made with ❤️ in Rwanda by the{" "}
+                <a 
+                  href="https://www.sitecraftersz.co/" 
+                  className="text-primary hover:text-primary/80 transition-colors underline" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  Sitecrafters Team
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -9,7 +9,7 @@ const Contact = () => {
     {
       icon: Phone,
       title: "Phone",
-      details: "+1 (555) 123-4567",
+      details: "+250 701 234 567",
       description: "Call for immediate assistance"
     },
     {
@@ -21,7 +21,7 @@ const Contact = () => {
     {
       icon: MapPin,
       title: "Location",
-      details: "123 Fitness St, Gym City",
+      details: "123 Kg Ave, Kigali",
       description: "Visit our training facility"
     },
     {
@@ -75,7 +75,7 @@ const Contact = () => {
                 
                 <div>
                   <label className="block text-sm font-medium mb-2">Phone Number</label>
-                  <Input type="tel" placeholder="+1 (555) 123-4567" className="bg-input border-border" />
+                  <Input type="tel" placeholder="+250 701 234 567" className="bg-input border-border" />
                 </div>
                 
                 <div>
@@ -86,7 +86,7 @@ const Contact = () => {
                   />
                 </div>
                 
-                <Button className="w-full btn-hero">
+                <Button className="w-full">
                   <Send className="w-4 h-4 mr-2" />
                   Send Message
                 </Button>
@@ -138,30 +138,9 @@ const Contact = () => {
                 <div className="text-center">
                   <MapPin className="w-12 h-12 text-primary mx-auto mb-4" />
                   <p className="text-muted-foreground">Interactive Map</p>
-                  <p className="text-sm text-muted-foreground">123 Fitness St, Gym City</p>
+                  <p className="text-sm text-muted-foreground">123 Kg Ave, Kigali</p>
                 </div>
               </div>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card className="card-glass">
-              <CardContent className="p-6">
-                <h3 className="font-bold text-lg mb-4">Response Times</h3>
-                 <div className="space-y-3">
-                   <div className="flex justify-between">
-                     <span>Chat Messages</span>
-                     <span className="text-primary font-semibold">&lt; 5 minutes</span>
-                   </div>
-                   <div className="flex justify-between">
-                     <span>Email Replies</span>
-                     <span className="text-primary font-semibold">&lt; 2 hours</span>
-                   </div>
-                   <div className="flex justify-between">
-                     <span>Phone Calls</span>
-                     <span className="text-primary font-semibold">&lt; 30 minutes</span>
-                   </div>
-                 </div>
-              </CardContent>
             </Card>
           </div>
         </div>

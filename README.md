@@ -1,22 +1,19 @@
-# Welcome to your Lovable project
+# Welcome to your Personal Trainer Website Project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/69fcfa24-b8cb-44bc-a6f8-856f0aae0a1b
+A responsive, modern personal trainer website with **authentication, role-based dashboards, and a real-time chat system**.  
+Clients can privately chat with the trainer, while the trainer (admin) can manage all client chats in one place.
+
+---
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/69fcfa24-b8cb-44bc-a6f8-856f0aae0a1b) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+If you want to work locally using your own IDE, you can clone this repo and push changes.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -29,45 +26,32 @@ git clone <YOUR_GIT_URL>
 # Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Step 3: Install the necessary dependencies for both frontend and backend.
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 5: Start the development servers.
 npm run dev
+
 ```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **React** (frontend)
+- **Node.js + Express** (backend APIs if needed)
+- **Supabase** (database, auth, and realtime chat)
+- **Tailwind CSS** (styling)
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/69fcfa24-b8cb-44bc-a6f8-856f0aae0a1b) and click on Share -> Publish.
+## Project Features
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Fully responsive landing page with trainer bio, services, and testimonials.
+- Hamburger menu for small/medium screens.
+- **Authentication:** Login & Signup with role-based access (client vs admin).
+- **Dashboards:**
+  - Client → Sees only their own chat with trainer.
+  - Admin → List of all clients + ability to chat with each.
+- **Chat system:** Real-time one-to-one messaging with Supabase Realtime.
+- Back button on dashboards → returns to main site.
