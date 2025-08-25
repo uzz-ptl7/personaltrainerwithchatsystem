@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, User, Mail, Lock, UserPlus } from 'lucide-react';
-import { useEffect } from 'react';
+import { ArrowLeft, User, Mail, Lock } from 'lucide-react';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +18,11 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (user.role === 'trainer') {
+        navigate('/dashboard'); // trainer dashboard
+      } else {
+        navigate('/dashboard'); // client dashboard
+      }
     }
   }, [user, navigate]);
 
@@ -31,19 +34,33 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    const { error } = await signIn(email, password);
+    const result = await signIn(email, password);
 
-    if (error) {
+    if (result && 'error' in result && result.error) {
       toast({
         variant: "destructive",
         title: "Sign in failed",
-        description: error.message
+        description: result.error?.message || "Something went wrong."
       });
-    } else {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in."
-      });
+    } else if (
+      result &&
+      'user' in result &&
+      result.user &&
+      typeof result.user === 'object' &&
+      result.user !== null &&
+      'role' in result.user &&
+      (result.user as { role?: string }).role === 'trainer'
+    ) {
+      toast({ title: "Welcome back, Trainer!" });
+      navigate('/dashboard');
+    } else if (
+      result &&
+      'user' in result &&
+      result.user &&
+      typeof result.user === 'object' &&
+      result.user !== null
+    ) {
+      toast({ title: "Welcome back!" });
       navigate('/dashboard');
     }
 
@@ -58,7 +75,7 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const fullName = formData.get('fullName') as string;
-    const role = formData.get('role') as string;
+    const role = 'client'; // fixed for signup
 
     const { error } = await signUp(email, password, fullName, role);
 
@@ -66,7 +83,7 @@ const Auth = () => {
       toast({
         variant: "destructive",
         title: "Sign up failed",
-        description: error.message
+        description: error?.message || "Something went wrong."
       });
     } else {
       toast({
@@ -81,19 +98,16 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Back to home button */}
         <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to home
         </Link>
 
-        {/* Logo */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gradient mb-2">COACH</h1>
           <p className="text-muted-foreground">Your personal fitness journey starts here</p>
         </div>
 
-        {/* Auth form */}
         <Card className="glass-card border-glow">
           <CardHeader>
             <CardTitle className="text-center">Join COACH</CardTitle>
@@ -187,22 +201,6 @@ const Auth = () => {
                         minLength={6}
                         required
                       />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-role">I am a...</Label>
-                    <div className="relative">
-                      <UserPlus className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <select
-                        id="signup-role"
-                        name="role"
-                        aria-label="Select your role"
-                        className="w-full pl-10 pr-4 py-2 rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                        required
-                      >
-                        <option value="client">Client looking for a trainer</option>
-                        <option value="trainer">Personal Trainer</option>
-                      </select>
                     </div>
                   </div>
                   <Button type="submit" className="w-full btn-hero" disabled={isLoading}>

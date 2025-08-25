@@ -35,44 +35,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Initialize chat and load target profile
-  useEffect(() => {
-    initializeChat();
-    fetchTargetProfile();
-  }, [currentUserId, targetUserId]);
-
-  // Subscribe to messages
-  useEffect(() => {
-    if (!chatId) return;
-    const channel = supabase
-      .channel(`chat-${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as Message;
-          if (newMsg.sender_id !== currentUserId) {
-            setMessages((prev) => [...prev, newMsg]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [chatId, currentUserId]);
-
-  // Scroll to bottom whenever messages update
-  useEffect(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  };
 
+  // Fetch target user profile
   const fetchTargetProfile = async () => {
     if (!targetUserId) return;
     const { data, error } = await supabase
@@ -80,39 +47,47 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       .select('full_name, email')
       .eq('user_id', targetUserId)
       .single();
-    if (!error) setTargetProfile(data);
+    if (!error && data) setTargetProfile(data);
   };
 
+  // Load chat messages
+  const loadMessages = async (chatId: string) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+    if (!error && data) setMessages(data);
+  };
+
+  // Initialize chat
   const initializeChat = async () => {
     try {
-      // Check for existing chat
-      const { data: existingChat, error: chatError } = await supabase
+      const { data: existingChat } = await supabase
         .from('chats')
         .select('*')
-        .or(`and(client_id.eq.${currentUserId},trainer_id.eq.${targetUserId}),and(client_id.eq.${targetUserId},trainer_id.eq.${currentUserId})`)
+        .or(
+          `and(client_id.eq.${currentUserId},trainer_id.eq.${targetUserId}),and(client_id.eq.${targetUserId},trainer_id.eq.${currentUserId})`
+        )
         .single();
 
       let chatData = existingChat;
 
       if (!existingChat) {
-        // Create new chat
-        const { data: newChat, error: createError } = await supabase
+        const { data: newChat } = await supabase
           .from('chats')
-          .insert({
-            client_id: currentUserId,
-            trainer_id: targetUserId
-          })
+          .insert({ client_id: currentUserId, trainer_id: targetUserId })
           .select()
           .single();
-
-        if (createError) throw createError;
         chatData = newChat;
       }
 
+      if (!chatData) throw new Error('Chat creation failed');
+
       setChatId(chatData.id);
       await loadMessages(chatData.id);
-    } catch (error: any) {
-      console.error('Error initializing chat:', error);
+    } catch (err: any) {
+      console.error('Chat init error:', err);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -123,23 +98,50 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     }
   };
 
-  const loadMessages = async (chatId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
+  // Subscribe to new messages
+  useEffect(() => {
+    if (!chatId) return;
 
-    if (error) console.error('Error loading messages:', error);
-    else setMessages(data || []);
-  };
+    const channel = supabase
+      .channel(`chat-${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`
+        },
+        (payload: { new: Message }) => {
+          setMessages((prev) => [...prev, payload.new]);
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Run on mount
+  useEffect(() => {
+    initializeChat();
+    fetchTargetProfile();
+  }, [currentUserId, targetUserId]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !chatId || sending) return;
+    if (!newMessage.trim() || !chatId) return;
 
-    setSending(true);
     const content = newMessage.trim();
+    setNewMessage('');
+    setSending(true);
 
     const tempMessage: Message = {
       id: `temp-${Date.now()}`,
@@ -147,23 +149,16 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       sender_id: currentUserId,
       created_at: new Date().toISOString()
     };
-
     setMessages((prev) => [...prev, tempMessage]);
-    setNewMessage('');
 
     const { error } = await supabase
       .from('messages')
       .insert({ chat_id: chatId, sender_id: currentUserId, content });
 
     if (error) {
-      console.error('Error sending message:', error);
-      setMessages((prev) => prev.filter((msg) => msg.id !== tempMessage.id));
+      setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(content);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to send message'
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send message' });
     }
 
     setSending(false);
@@ -187,8 +182,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
               <div className="flex items-center space-x-3">
                 <Avatar>
@@ -207,7 +201,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         </div>
       </div>
 
-      {/* Chat Messages */}
+      {/* Messages */}
       <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
