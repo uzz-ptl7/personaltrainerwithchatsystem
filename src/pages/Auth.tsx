@@ -11,20 +11,16 @@ import { ArrowLeft, User, Mail, Lock } from 'lucide-react';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, signOut, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Redirect only if user exists and not on logout
   useEffect(() => {
-    if (user) {
-      if (user.role === 'trainer') {
-        navigate('/dashboard'); // trainer dashboard
-      } else {
-        navigate('/dashboard'); // client dashboard
-      }
+    if (!authLoading && user) {
+      navigate('/dashboard'); // send all logged-in users to dashboard
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,29 +34,12 @@ const Auth = () => {
 
     if (result && 'error' in result && result.error) {
       toast({
-        variant: "destructive",
-        title: "Sign in failed",
-        description: result.error?.message || "Something went wrong."
+        variant: 'destructive',
+        title: 'Sign in failed',
+        description: result.error.message || 'Something went wrong.',
       });
-    } else if (
-      result &&
-      'user' in result &&
-      result.user &&
-      typeof result.user === 'object' &&
-      result.user !== null &&
-      'role' in result.user &&
-      (result.user as { role?: string }).role === 'trainer'
-    ) {
-      toast({ title: "Welcome back, Trainer!" });
-      navigate('/dashboard');
-    } else if (
-      result &&
-      'user' in result &&
-      result.user &&
-      typeof result.user === 'object' &&
-      result.user !== null
-    ) {
-      toast({ title: "Welcome back!" });
+    } else {
+      toast({ title: 'Welcome back!' });
       navigate('/dashboard');
     }
 
@@ -75,30 +54,50 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const fullName = formData.get('fullName') as string;
-    const role = 'client'; // fixed for signup
+    const role = 'client'; // fixed role
 
     const { error } = await signUp(email, password, fullName, role);
 
     if (error) {
       toast({
-        variant: "destructive",
-        title: "Sign up failed",
-        description: error?.message || "Something went wrong."
+        variant: 'destructive',
+        title: 'Sign up failed',
+        description: error.message || 'Something went wrong.',
       });
     } else {
       toast({
-        title: "Account created!",
-        description: "Please check your email to confirm your account."
+        title: 'Account created!',
+        description: 'Please check your email to confirm your account.',
       });
     }
 
     setIsLoading(false);
   };
 
+  const handleLogout = async () => {
+    await signOut(); // clear Supabase session + local state
+    toast({ title: 'Signed out successfully' });
+    navigate('/login'); // redirect to login page
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
+        <Link
+          to="/"
+          className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors"
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to home
         </Link>
@@ -209,6 +208,13 @@ const Auth = () => {
                 </form>
               </TabsContent>
             </Tabs>
+
+            {/* Optional: Logout button if needed */}
+            {user && (
+              <Button variant="destructive" className="mt-4 w-full" onClick={handleLogout}>
+                Sign Out
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
