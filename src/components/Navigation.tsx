@@ -98,7 +98,7 @@ const Navigation = () => {
             ))}
             <div className="pt-4 space-y-2">
               <Button variant="ghost" className="w-full justify-start" asChild>
-                <a href="/auth">
+                <a href="">
                   <User className="w-4 h-4 mr-2" />
                   Login
                 </a>
