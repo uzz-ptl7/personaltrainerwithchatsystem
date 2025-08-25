@@ -25,7 +25,8 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [clients, setClients] = useState<Profile[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [trainer, setTrainer] = useState<Profile | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
@@ -43,6 +44,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (profile?.role === 'trainer') {
       fetchClients();
+    } else if (profile?.role === 'client') {
+      fetchTrainer();
     }
   }, [profile]);
 
@@ -78,6 +81,20 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTrainer = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'trainer')
+      .single();
+
+    if (error) {
+      console.error('Error fetching trainer:', error);
+    } else {
+      setTrainer(data);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -87,13 +104,11 @@ const Dashboard = () => {
     });
   };
 
-  const handleStartChat = (clientId?: string) => {
-    if (profile?.role === 'trainer' && clientId) {
-      setSelectedClientId(clientId);
-    } else if (profile?.role === 'client') {
-      // For clients, find a trainer to chat with (for demo, we'll use the first trainer found)
-      // In a real app, this would be their assigned trainer
-      setSelectedClientId('trainer'); // This would be the actual trainer ID
+  const handleStartChat = (targetUserId?: string) => {
+    if (profile?.role === 'trainer' && targetUserId) {
+      setSelectedUserId(targetUserId);
+    } else if (profile?.role === 'client' && trainer) {
+      setSelectedUserId(trainer.user_id);
     }
     setShowChat(true);
   };
@@ -109,11 +124,11 @@ const Dashboard = () => {
     );
   }
 
-  if (showChat) {
+  if (showChat && selectedUserId) {
     return (
       <Chat
         currentUserId={user?.id || ''}
-        targetUserId={selectedClientId || ''}
+        targetUserId={selectedUserId}
         onBack={() => setShowChat(false)}
       />
     );
@@ -240,14 +255,35 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground mb-4">
-                  Start a conversation with your personal trainer to discuss your fitness goals, 
-                  ask questions, and get personalized guidance.
-                </p>
-                <Button className="btn-hero" onClick={() => handleStartChat()}>
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Start Chat with Trainer
-                </Button>
+                {trainer ? (
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Avatar>
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {trainer.full_name?.charAt(0) || 'T'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{trainer.full_name || 'Your Trainer'}</p>
+                        <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground mb-4">
+                      Start a conversation with your personal trainer to discuss your fitness goals, 
+                      ask questions, and get personalized guidance.
+                    </p>
+                    <Button className="btn-hero" onClick={() => handleStartChat()}>
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Start Chat with Trainer
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground mb-4">
+                      No trainer assigned yet. Please contact support to get connected with a trainer.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

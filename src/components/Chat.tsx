@@ -49,6 +49,13 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
   const initializeChat = async () => {
     try {
+      // Get current user's profile to determine role
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', currentUserId)
+        .single();
+
       // Find existing chat or create new one
       let { data: existingChat, error: chatError } = await supabase
         .from('chats')
@@ -67,12 +74,13 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       }
 
       if (!existingChat) {
-        // Create new chat
+        // Create new chat with correct role assignment
+        const isCurrentUserTrainer = currentProfile?.role === 'trainer';
         const { data: newChat, error: createError } = await supabase
           .from('chats')
           .insert({
-            client_id: currentUserId,
-            trainer_id: targetUserId
+            client_id: isCurrentUserTrainer ? targetUserId : currentUserId,
+            trainer_id: isCurrentUserTrainer ? currentUserId : targetUserId
           })
           .select()
           .single();
@@ -120,7 +128,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
   const subscribeToMessages = () => {
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel(`chat-${chatId}`)
       .on(
         'postgres_changes',
         {
@@ -130,7 +138,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           filter: `chat_id=eq.${chatId}`
         },
         (payload) => {
-          setMessages(prev => [...prev, payload.new as Message]);
+          const newMessage = payload.new as Message;
+          // Only add message if it's not from current user (to avoid duplication)
+          if (newMessage.sender_id !== currentUserId) {
+            setMessages(prev => [...prev, newMessage]);
+          }
         }
       )
       .subscribe();
@@ -145,24 +157,36 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     if (!newMessage.trim() || !chatId || sending) return;
 
     setSending(true);
+    const messageContent = newMessage.trim();
+    const tempMessage: Message = {
+      id: `temp-${Date.now()}`,
+      content: messageContent,
+      sender_id: currentUserId,
+      created_at: new Date().toISOString()
+    };
+
+    // Optimistically add message to UI
+    setMessages(prev => [...prev, tempMessage]);
+    setNewMessage('');
 
     const { error } = await supabase
       .from('messages')
       .insert({
         chat_id: chatId,
         sender_id: currentUserId,
-        content: newMessage.trim()
+        content: messageContent
       });
 
     if (error) {
       console.error('Error sending message:', error);
+      // Remove the temporary message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      setNewMessage(messageContent); // Restore message content
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to send message"
       });
-    } else {
-      setNewMessage('');
     }
 
     setSending(false);
