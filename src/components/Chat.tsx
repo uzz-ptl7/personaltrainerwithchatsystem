@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowLeft, Send, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { NotificationManager } from '@/utils/notifications';
 
 interface Message {
   id: string;
@@ -117,6 +118,21 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           // The current user's messages are already added optimistically
           if (payload.new.sender_id !== currentUserId) {
             setMessages((prev) => [...prev, payload.new]);
+            
+            // Send notification for incoming message
+            NotificationManager.getInstance().showNotification(
+              'New Message',
+              payload.new.content
+            );
+            
+            // Also send via edge function for push/email notifications
+            supabase.functions.invoke('send-notification', {
+              body: {
+                recipientId: currentUserId,
+                senderName: targetProfile?.full_name || 'Someone',
+                message: payload.new.content
+              }
+            });
           }
         }
       )
@@ -137,6 +153,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   useEffect(() => {
     initializeChat();
     fetchTargetProfile();
+    
+    // Initialize push notifications
+    if (currentUserId) {
+      NotificationManager.getInstance().subscribeToNotifications(currentUserId);
+    }
   }, [currentUserId, targetUserId]);
 
   const sendMessage = async (e: React.FormEvent) => {

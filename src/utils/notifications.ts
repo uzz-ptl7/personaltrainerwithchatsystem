@@ -62,14 +62,14 @@ export class NotificationManager {
         )
       });
 
-      // Save subscription to database
-      await supabase
-        .from('push_subscriptions')
-        .upsert({
-          user_id: userId,
+      // Save subscription to database via edge function
+      await supabase.functions.invoke('save-push-subscription', {
+        body: {
+          userId,
           subscription: subscription.toJSON(),
           endpoint: subscription.endpoint
-        });
+        }
+      });
 
       console.log('Push notification subscription saved');
     } catch (error) {
@@ -102,7 +102,7 @@ export class NotificationManager {
         icon: '/favicon.ico',
         badge: '/favicon.ico',
         tag: 'chat-message',
-        renotify: true
+        requireInteraction: true
       });
     } else {
       // Fallback to browser notification
