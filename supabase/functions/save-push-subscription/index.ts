@@ -1,57 +1,39 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import express from "express";
+import { createClient } from "@supabase/supabase-js";
+
+const app = express();
+app.use(express.json());
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Supabase client
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  process.env.SUPABASE_URL ?? "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
 );
 
-interface SaveSubscriptionRequest {
-  userId: string;
-  subscription: any;
-  endpoint: string;
-}
+app.options("*", (_, res) => res.set(corsHeaders).send());
 
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+app.post("/save-subscription", async (req, res) => {
   try {
-    const { userId, subscription, endpoint }: SaveSubscriptionRequest = await req.json();
+    const { userId, subscription, endpoint } = req.body;
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: userId,
-        subscription,
-        endpoint
-      });
+    const { error } = await supabase.from("push_subscriptions").upsert({
+      user_id: userId,
+      subscription,
+      endpoint,
+    });
 
     if (error) throw error;
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  } catch (error: any) {
-    console.error('Error saving push subscription:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    res.set(corsHeaders).status(200).json({ success: true });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-};
+});
 
-serve(handler);
+export default app;

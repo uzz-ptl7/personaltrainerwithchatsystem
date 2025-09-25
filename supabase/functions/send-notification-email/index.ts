@@ -1,27 +1,21 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.1.0";
+import express from "express";
+import { Resend } from "resend";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const app = express();
+app.use(express.json());
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface EmailRequest {
-  to: string;
-  recipientName: string;
-  senderName: string;
-  message: string;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+app.options("*", (_, res) => res.set(corsHeaders).send());
 
+app.post("/send-email", async (req, res) => {
   try {
-    const { to, recipientName, senderName, message }: EmailRequest = await req.json();
+    const { to, recipientName, senderName, message } = req.body;
 
     const emailResponse = await resend.emails.send({
       from: "Coach App <notifications@resend.dev>",
@@ -30,13 +24,13 @@ const handler = async (req: Request): Promise<Response> => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>New Message from ${senderName}</h2>
-          <p>Hi ${recipientName || 'there'},</p>
+          <p>Hi ${recipientName || "there"},</p>
           <p>You have received a new message:</p>
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
             <p style="margin: 0; font-style: italic;">"${message}"</p>
           </div>
           <p>
-            <a href="${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com') || 'https://your-app.com'}" 
+            <a href="/" 
                style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               View Message
             </a>
@@ -46,22 +40,11 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Email sent successfully:", emailResponse);
-
-    return new Response(JSON.stringify(emailResponse), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
-  } catch (error: any) {
-    console.error("Error sending email:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    res.set(corsHeaders).status(200).json(emailResponse);
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-};
+});
 
-serve(handler);
+export default app;
