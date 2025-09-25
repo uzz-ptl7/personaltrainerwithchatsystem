@@ -201,7 +201,9 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
                 </Avatar>
                 <div>
                   <h1 className="font-semibold">{targetProfile?.full_name || 'User'}</h1>
-                  <p className="text-sm text-muted-foreground">Online</p>
+                  <p className="text-sm text-muted-foreground">
+                    {targetUserId ? 'Online' : 'Offline'}
+                  </p>
                 </div>
               </div>
             </div>
