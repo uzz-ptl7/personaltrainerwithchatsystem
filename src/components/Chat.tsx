@@ -113,7 +113,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           filter: `chat_id=eq.${chatId}`
         },
         (payload: { new: Message }) => {
-          setMessages((prev) => [...prev, payload.new]);
+          // Only add the message if it's not from the current user (to avoid duplicates)
+          // The current user's messages are already added optimistically
+          if (payload.new.sender_id !== currentUserId) {
+            setMessages((prev) => [...prev, payload.new]);
+          }
         }
       )
       .subscribe();
@@ -122,7 +126,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId]);
+  }, [chatId, currentUserId]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -151,14 +155,19 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     };
     setMessages((prev) => [...prev, tempMessage]);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('messages')
-      .insert({ chat_id: chatId, sender_id: currentUserId, content });
+      .insert({ chat_id: chatId, sender_id: currentUserId, content })
+      .select()
+      .single();
 
     if (error) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(content);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to send message' });
+    } else {
+      // Replace the temporary message with the real one
+      setMessages((prev) => prev.map(m => m.id === tempMessage.id ? data : m));
     }
 
     setSending(false);

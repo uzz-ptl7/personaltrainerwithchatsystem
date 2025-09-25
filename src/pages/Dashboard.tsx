@@ -118,7 +118,7 @@ const Dashboard = () => {
         </div>
         <nav className="flex-1 px-4 py-6 space-y-4">
           <Badge variant="secondary" className="w-full text-center">{profile?.role === 'trainer' ? 'Trainer' : 'Client'} Dashboard</Badge>
-          <Button variant="ghost" className="w-full flex items-center justify-start" onClick={() => setSidebarOpen(false)}>
+          <Button variant="ghost" className="w-full flex items-center justify-start" onClick={() => { setSidebarOpen(false); navigate('/'); }}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Home
           </Button>
           <Button variant="ghost" className="w-full flex items-center justify-start" onClick={handleSignOut}>
@@ -128,7 +128,7 @@ const Dashboard = () => {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col md:pl-64">
+      <div className="flex-1 flex flex-col">
         {/* Mobile header */}
         <div className="md:hidden border-b border-border bg-background/95 backdrop-blur-lg sticky top-0 z-40 flex items-center justify-between px-4 h-16">
           <button
