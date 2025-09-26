@@ -70,7 +70,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       // Function to save token with retry
       const saveToken = async () => {
         const response = await fetch(
-          "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/save-push-subscription",
+          "https://ptchatsystem.netlify.app/.netlify/functions/save-push-subscription",
           {
             method: "POST",
             headers: {
@@ -205,7 +205,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
               // Push notification
               try {
                 await fetch(
-                  "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification",
+                  "https://ptchatsystem.netlify.app/.netlify/functions/send-notification",
                   {
                     method: "POST",
                     headers: {
@@ -226,7 +226,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
               // Email notification
               try {
                 await fetch(
-                  "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification-email",
+                  "https://ptchatsystem.netlify.app/.netlify/functions/send-notification-email",
                   {
                     method: "POST",
                     headers: {
