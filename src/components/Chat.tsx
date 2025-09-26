@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, Send, MessageCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { NotificationManager } from '@/utils/notifications';
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ArrowLeft, Send, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { NotificationManager } from "@/utils/notifications";
+import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
+import { initializeApp } from "firebase/app";
 
 interface Message {
   id: string;
@@ -26,9 +28,22 @@ interface ChatProps {
   onBack: () => void;
 }
 
+// ------------------- Firebase Config -------------------
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const messaging = getMessaging(firebaseApp);
+
 const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
@@ -37,147 +52,178 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   const { toast } = useToast();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Fetch target user profile
+  // ------------------- FCM Token -------------------
+  const registerFCMToken = async () => {
+    try {
+      let savedToken = localStorage.getItem("fcm_token");
+      if (!savedToken) {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        savedToken = await getToken(messaging, {
+          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+        });
+        if (savedToken) {
+          await fetch("/save-subscription/save-subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: currentUserId, fcmToken: savedToken }),
+          });
+          localStorage.setItem("fcm_token", savedToken);
+        }
+      }
+
+      onMessage(messaging, (payload: MessagePayload) => {
+        NotificationManager.getInstance().showNotification(
+          payload.notification?.title || "New Message",
+          payload.notification?.body || "You have a new message"
+        );
+      });
+    } catch (err) {
+      console.error("FCM registration error:", err);
+    }
+  };
+
+  // ------------------- Fetch Profile -------------------
   const fetchTargetProfile = async () => {
     if (!targetUserId) return;
     const { data, error } = await supabase
-      .from('profiles')
-      .select('full_name, email')
-      .eq('user_id', targetUserId)
+      .from("profiles")
+      .select("full_name,email")
+      .eq("user_id", targetUserId)
       .single();
     if (!error && data) setTargetProfile(data);
   };
 
-  // Load chat messages
+  // ------------------- Load Messages -------------------
   const loadMessages = async (chatId: string) => {
     const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
+      .from("messages")
+      .select("*")
+      .eq("chat_id", chatId)
+      .order("created_at", { ascending: true });
     if (!error && data) setMessages(data);
   };
 
-  // Initialize chat
+  // ------------------- Initialize Chat -------------------
   const initializeChat = async () => {
     try {
-      const { data: existingChat } = await supabase
-        .from('chats')
-        .select('*')
+      const { data: chats, error: fetchError } = await supabase
+        .from("chats")
+        .select("*")
         .or(
           `and(client_id.eq.${currentUserId},trainer_id.eq.${targetUserId}),and(client_id.eq.${targetUserId},trainer_id.eq.${currentUserId})`
-        )
-        .single();
+        );
 
-      let chatData = existingChat;
+      if (fetchError) throw fetchError;
 
-      if (!existingChat) {
-        const { data: newChat } = await supabase
-          .from('chats')
+      let chatData = chats?.[0];
+
+      if (!chatData) {
+        const { data: newChat, error: insertError } = await supabase
+          .from("chats")
           .insert({ client_id: currentUserId, trainer_id: targetUserId })
           .select()
           .single();
+        if (insertError) throw insertError;
         chatData = newChat;
       }
 
-      if (!chatData) throw new Error('Chat creation failed');
+      if (!chatData) throw new Error("Chat creation failed");
 
       setChatId(chatData.id);
       await loadMessages(chatData.id);
     } catch (err: any) {
-      console.error('Chat init error:', err);
+      console.error("Chat init error:", err);
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to initialize chat'
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to initialize chat: " + err.message,
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Subscribe to new messages
+  // ------------------- Subscribe to Messages -------------------
   useEffect(() => {
     if (!chatId) return;
-
     const channel = supabase
       .channel(`chat-${chatId}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${chatId}`,
         },
-        (payload: { new: Message }) => {
-          // Only add the message if it's not from the current user (to avoid duplicates)
-          // The current user's messages are already added optimistically
-          if (payload.new.sender_id !== currentUserId) {
-            setMessages((prev) => [...prev, payload.new]);
-            
-            // Send notification for incoming message
-            NotificationManager.getInstance().showNotification(
-              'New Message',
-              payload.new.content
-            );
-            
-            // Also send via edge function for push/email notifications
-            supabase.functions.invoke('send-notification', {
-              body: {
-                recipientId: currentUserId,
-                senderName: targetProfile?.full_name || 'Someone',
-                message: payload.new.content
-              }
+        async (payload: { new: Message }) => {
+          const msg = payload.new;
+          setMessages((prev) => [...prev, msg]);
+
+          if (msg.sender_id !== currentUserId) {
+            NotificationManager.getInstance().showNotification("New Message", msg.content);
+
+            await fetch("/send-notification/send-push", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                recipientId: targetUserId,
+                senderName: targetProfile?.full_name || "Someone",
+                message: msg.content,
+              }),
+            });
+
+            await fetch("/send-notification-email/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: targetProfile?.email,
+                recipientName: targetProfile?.full_name,
+                senderName: targetProfile?.full_name || "Someone",
+                message: msg.content,
+              }),
             });
           }
         }
       )
       .subscribe();
 
-    // Cleanup subscription on unmount
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, currentUserId]);
+  }, [chatId, currentUserId, targetProfile]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => scrollToBottom(), [messages]);
 
-  // Run on mount
   useEffect(() => {
     initializeChat();
     fetchTargetProfile();
-    
-    // Initialize push notifications
-    if (currentUserId) {
-      NotificationManager.getInstance().subscribeToNotifications(currentUserId);
-    }
+    registerFCMToken();
   }, [currentUserId, targetUserId]);
 
+  // ------------------- Send Message -------------------
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !chatId) return;
 
     const content = newMessage.trim();
-    setNewMessage('');
+    setNewMessage("");
     setSending(true);
 
     const tempMessage: Message = {
       id: `temp-${Date.now()}`,
       content,
       sender_id: currentUserId,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempMessage]);
 
     const { data, error } = await supabase
-      .from('messages')
+      .from("messages")
       .insert({ chat_id: chatId, sender_id: currentUserId, content })
       .select()
       .single();
@@ -185,10 +231,9 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     if (error) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(content);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send message' });
+      toast({ variant: "destructive", title: "Error", description: "Failed to send message" });
     } else {
-      // Replace the temporary message with the real one
-      setMessages((prev) => prev.map(m => m.id === tempMessage.id ? data : m));
+      setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? data : m)));
     }
 
     setSending(false);
@@ -217,14 +262,12 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
               <div className="flex items-center space-x-3">
                 <Avatar>
                   <AvatarFallback className="bg-primary text-primary-foreground">
-                    {targetProfile?.full_name?.charAt(0) || 'U'}
+                    {targetProfile?.full_name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h1 className="font-semibold">{targetProfile?.full_name || 'User'}</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {targetUserId ? 'Online' : 'Offline'}
-                  </p>
+                  <h1 className="font-semibold">{targetProfile?.full_name || "User"}</h1>
+                  <p className="text-sm text-muted-foreground">{targetUserId ? "Online" : "Offline"}</p>
                 </div>
               </div>
             </div>
@@ -244,11 +287,22 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
             </div>
           ) : (
             messages.map((message) => (
-              <div key={message.id} className={`flex ${message.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender_id === currentUserId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+              <div
+                key={message.id}
+                className={`flex ${message.sender_id === currentUserId ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.sender_id === currentUserId ? "bg-primary text-primary-foreground" : "bg-muted"
+                  }`}
+                >
                   <p className="text-sm">{message.content}</p>
-                  <p className={`text-xs mt-1 ${message.sender_id === currentUserId ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <p
+                    className={`text-xs mt-1 ${
+                      message.sender_id === currentUserId ? "text-primary-foreground/70" : "text-muted-foreground"
+                    }`}
+                  >
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
               </div>
