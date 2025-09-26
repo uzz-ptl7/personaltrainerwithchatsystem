@@ -50,8 +50,14 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
+        // Register service worker
+        const swRegistration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js"
+        );
+
         savedToken = await getToken(messaging, {
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: swRegistration,
         });
 
         if (savedToken) {
@@ -64,6 +70,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         }
       }
 
+      // Foreground notifications
       onMessage(messaging, (payload: MessagePayload) => {
         NotificationManager.getInstance().showNotification(
           payload.notification?.title || "New Message",
