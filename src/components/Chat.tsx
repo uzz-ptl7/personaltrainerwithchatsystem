@@ -61,9 +61,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         });
 
         if (savedToken) {
-          await fetch("/save-subscription/save-subscription", {
+          await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/save-push-subscription", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json",
+              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+             },
             body: JSON.stringify({ userId: currentUserId, fcmToken: savedToken }),
           });
           localStorage.setItem("fcm_token", savedToken);
@@ -166,9 +168,12 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           if (msg.sender_id !== currentUserId) {
             NotificationManager.getInstance().showNotification("New Message", msg.content);
 
-            await fetch("/send-notification/send-push", {
+            await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
               body: JSON.stringify({
                 recipientId: targetUserId,
                 senderName: targetProfile?.full_name || "Someone",
@@ -176,9 +181,12 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
               }),
             });
 
-            await fetch("/send-notification-email/send-email", {
+            await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification-email", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+               },
               body: JSON.stringify({
                 to: targetProfile?.email,
                 recipientName: targetProfile?.full_name,
