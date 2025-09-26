@@ -46,6 +46,8 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   const registerFCMToken = async () => {
     try {
       let savedToken = localStorage.getItem("fcm_token");
+
+      // Ask for notification permission
       if (!savedToken) {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
@@ -60,17 +62,41 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           serviceWorkerRegistration: swRegistration,
         });
 
-        if (savedToken) {
-          await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/save-push-subscription", {
-            method: "POST",
-            headers: { "Content-Type": "application/json",
-              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
-             },
-            body: JSON.stringify({ userId: currentUserId, fcmToken: savedToken }),
-          });
-          localStorage.setItem("fcm_token", savedToken);
-        }
+        if (!savedToken) return;
+
+        localStorage.setItem("fcm_token", savedToken);
       }
+
+      // Function to save token with retry
+      const saveToken = async () => {
+        const response = await fetch(
+          "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/save-push-subscription",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ userId: currentUserId, fcmToken: savedToken }),
+          }
+        );
+
+        if (response.status === 401) {
+          console.warn("Token expired, refreshing anon key...");
+
+          // Refresh session / key if needed
+          const { data, error } = await supabase.auth.refreshSession(); // refresh session
+          if (error) throw error;
+
+          // Retry saving the token
+          return saveToken();
+        }
+
+        if (!response.ok) throw new Error("Failed to save FCM token");
+        return response.json();
+      };
+
+      await saveToken();
 
       // Foreground notifications
       onMessage(messaging, (payload: MessagePayload) => {
@@ -87,24 +113,30 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   // ------------------- Fetch Profile -------------------
   const fetchTargetProfile = async () => {
     if (!targetUserId) return;
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name,email")
-      .eq("user_id", targetUserId)
-      .single();
-
-    if (!error && data) setTargetProfile(data);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name,email")
+        .eq("user_id", targetUserId)
+        .single();
+      if (!error && data) setTargetProfile(data);
+    } catch (err) {
+      console.error("Fetch profile error:", err);
+    }
   };
 
   // ------------------- Load Messages -------------------
   const loadMessages = async (chatId: string) => {
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("chat_id", chatId)
-      .order("created_at", { ascending: true });
-
-    if (!error && data) setMessages(data);
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("chat_id", chatId)
+        .order("created_at", { ascending: true });
+      if (!error && data) setMessages(data);
+    } catch (err) {
+      console.error("Load messages error:", err);
+    }
   };
 
   // ------------------- Initialize Chat -------------------
@@ -151,6 +183,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   // ------------------- Subscribe to Messages -------------------
   useEffect(() => {
     if (!chatId) return;
+
     const channel = supabase
       .channel(`chat-${chatId}`)
       .on(
@@ -162,38 +195,58 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           filter: `chat_id=eq.${chatId}`,
         },
         async (payload: { new: Message }) => {
-          const msg = payload.new;
-          setMessages((prev) => [...prev, msg]);
+          try {
+            const msg = payload.new;
+            setMessages((prev) => [...prev, msg]);
 
-          if (msg.sender_id !== currentUserId) {
-            NotificationManager.getInstance().showNotification("New Message", msg.content);
+            if (msg.sender_id !== currentUserId) {
+              NotificationManager.getInstance().showNotification("New Message", msg.content);
 
-            await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
-                recipientId: targetUserId,
-                senderName: targetProfile?.full_name || "Someone",
-                message: msg.content,
-              }),
-            });
+              // Push notification
+              try {
+                await fetch(
+                  "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      recipientId: targetUserId,
+                      senderName: targetProfile?.full_name || "Someone",
+                      message: msg.content,
+                    }),
+                  }
+                );
+              } catch (err) {
+                console.error("Push notification error:", err);
+              }
 
-            await fetch("https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification-email", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-               },
-              body: JSON.stringify({
-                to: targetProfile?.email,
-                recipientName: targetProfile?.full_name,
-                senderName: targetProfile?.full_name || "Someone",
-                message: msg.content,
-              }),
-            });
+              // Email notification
+              try {
+                await fetch(
+                  "https://riohfaozsjeikczqjgzr.supabase.co/functions/v1/send-notification-email",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      to: targetProfile?.email,
+                      recipientName: targetProfile?.full_name,
+                      senderName: targetProfile?.full_name || "Someone",
+                      message: msg.content,
+                    }),
+                  }
+                );
+              } catch (err) {
+                console.error("Email notification error:", err);
+              }
+            }
+          } catch (err) {
+            console.error("Realtime message handler error:", err);
           }
         }
       )
@@ -229,21 +282,23 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     };
     setMessages((prev) => [...prev, tempMessage]);
 
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({ chat_id: chatId, sender_id: currentUserId, content })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ chat_id: chatId, sender_id: currentUserId, content })
+        .select()
+        .single();
 
-    if (error) {
+      if (error) throw error;
+
+      setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? data : m)));
+    } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(content);
       toast({ variant: "destructive", title: "Error", description: "Failed to send message" });
-    } else {
-      setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? data : m)));
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   if (loading)
