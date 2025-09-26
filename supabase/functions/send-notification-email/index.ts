@@ -17,6 +17,10 @@ app.post("/send-email", async (req, res) => {
   try {
     const { to, recipientName, senderName, message } = req.body;
 
+    if (!to || !senderName || !message) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const emailResponse = await resend.emails.send({
       from: "Coach App <notifications@resend.dev>",
       to: [to],
@@ -42,7 +46,7 @@ app.post("/send-email", async (req, res) => {
 
     res.set(corsHeaders).status(200).json(emailResponse);
   } catch (err: any) {
-    console.error(err);
+    console.error("Send-email error:", err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -19,12 +19,15 @@ app.options("*", (_, res) => res.set(corsHeaders).send());
 
 app.post("/save-subscription", async (req, res) => {
   try {
-    const { userId, subscription, endpoint } = req.body;
+    const { userId, fcmToken } = req.body;
+
+    if (!userId || !fcmToken) {
+      return res.status(400).json({ error: "Missing userId or fcmToken" });
+    }
 
     const { error } = await supabase.from("push_subscriptions").upsert({
       user_id: userId,
-      subscription,
-      endpoint,
+      fcm_token: fcmToken,
     });
 
     if (error) throw error;
