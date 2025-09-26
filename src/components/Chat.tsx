@@ -7,8 +7,8 @@ import { ArrowLeft, Send, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationManager } from "@/utils/notifications";
-import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
-import { initializeApp } from "firebase/app";
+import { getToken, onMessage, MessagePayload } from "firebase/messaging";
+import { messaging } from "@/integrations/firebaseClient";
 
 interface Message {
   id: string;
@@ -27,19 +27,6 @@ interface ChatProps {
   targetUserId: string;
   onBack: () => void;
 }
-
-// ------------------- Firebase Config -------------------
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const messaging = getMessaging(firebaseApp);
 
 const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,9 +49,11 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       if (!savedToken) {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
+
         savedToken = await getToken(messaging, {
-          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
         });
+
         if (savedToken) {
           await fetch("/save-subscription/save-subscription", {
             method: "POST",
@@ -94,6 +83,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       .select("full_name,email")
       .eq("user_id", targetUserId)
       .single();
+
     if (!error && data) setTargetProfile(data);
   };
 
@@ -104,6 +94,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
       .select("*")
       .eq("chat_id", chatId)
       .order("created_at", { ascending: true });
+
     if (!error && data) setMessages(data);
   };
 
@@ -127,6 +118,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           .insert({ client_id: currentUserId, trainer_id: targetUserId })
           .select()
           .single();
+
         if (insertError) throw insertError;
         chatData = newChat;
       }
