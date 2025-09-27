@@ -47,12 +47,10 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     try {
       let savedToken = localStorage.getItem("fcm_token");
 
-      // Ask for notification permission
       if (!savedToken) {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        // Register service worker
         const swRegistration = await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js"
         );
@@ -67,7 +65,6 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         localStorage.setItem("fcm_token", savedToken);
       }
 
-      // Function to save token with retry
       const saveToken = async () => {
         const response = await fetch(
           "https://ptchatsystem.netlify.app/.netlify/functions/save-push-subscription",
@@ -83,12 +80,8 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
         if (response.status === 401) {
           console.warn("Token expired, refreshing anon key...");
-
-          // Refresh session / key if needed
-          const { data, error } = await supabase.auth.refreshSession(); // refresh session
+          const { data, error } = await supabase.auth.refreshSession();
           if (error) throw error;
-
-          // Retry saving the token
           return saveToken();
         }
 
@@ -98,7 +91,6 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
       await saveToken();
 
-      // Foreground notifications
       onMessage(messaging, (payload: MessagePayload) => {
         NotificationManager.getInstance().showNotification(
           payload.notification?.title || "New Message",
@@ -197,53 +189,55 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
         async (payload: { new: Message }) => {
           try {
             const msg = payload.new;
+
+            // ✅ Prevent duplicates: skip if the sender is the current user
+            if (msg.sender_id === currentUserId) return;
+
             setMessages((prev) => [...prev, msg]);
 
-            if (msg.sender_id !== currentUserId) {
-              NotificationManager.getInstance().showNotification("New Message", msg.content);
+            NotificationManager.getInstance().showNotification("New Message", msg.content);
 
-              // Push notification
-              try {
-                await fetch(
-                  "https://ptchatsystem.netlify.app/.netlify/functions/send-notification",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      recipientId: targetUserId,
-                      senderName: targetProfile?.full_name || "Someone",
-                      message: msg.content,
-                    }),
-                  }
-                );
-              } catch (err) {
-                console.error("Push notification error:", err);
-              }
+            // Push notification
+            try {
+              await fetch(
+                "https://ptchatsystem.netlify.app/.netlify/functions/send-notification",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    recipientId: targetUserId,
+                    senderName: targetProfile?.full_name || "Someone",
+                    message: msg.content,
+                  }),
+                }
+              );
+            } catch (err) {
+              console.error("Push notification error:", err);
+            }
 
-              // Email notification
-              try {
-                await fetch(
-                  "https://ptchatsystem.netlify.app/.netlify/functions/send-notification-email",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      to: targetProfile?.email,
-                      recipientName: targetProfile?.full_name,
-                      senderName: targetProfile?.full_name || "Someone",
-                      message: msg.content,
-                    }),
-                  }
-                );
-              } catch (err) {
-                console.error("Email notification error:", err);
-              }
+            // Email notification
+            try {
+              await fetch(
+                "https://ptchatsystem.netlify.app/.netlify/functions/send-notification-email",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    to: targetProfile?.email,
+                    recipientName: targetProfile?.full_name,
+                    senderName: targetProfile?.full_name || "Someone",
+                    message: msg.content,
+                  }),
+                }
+              );
+            } catch (err) {
+              console.error("Email notification error:", err);
             }
           } catch (err) {
             console.error("Realtime message handler error:", err);
@@ -255,7 +249,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, currentUserId, targetProfile]);
+  }, [chatId, currentUserId, targetProfile, targetUserId]);
 
   useEffect(() => scrollToBottom(), [messages]);
 
@@ -291,6 +285,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
       if (error) throw error;
 
+      // replace temp with actual db message
       setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? data : m)));
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
@@ -329,7 +324,9 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
                 </Avatar>
                 <div>
                   <h1 className="font-semibold">{targetProfile?.full_name || "User"}</h1>
-                  <p className="text-sm text-muted-foreground">{targetUserId ? "Online" : "Offline"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {targetUserId ? "Online" : "Offline"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -351,20 +348,29 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.sender_id === currentUserId ? "justify-end" : "justify-start"}`}
+                className={`flex ${
+                  message.sender_id === currentUserId ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender_id === currentUserId ? "bg-primary text-primary-foreground" : "bg-muted"
+                    message.sender_id === currentUserId
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
                   }`}
                 >
                   <p className="text-sm">{message.content}</p>
                   <p
                     className={`text-xs mt-1 ${
-                      message.sender_id === currentUserId ? "text-primary-foreground/70" : "text-muted-foreground"
+                      message.sender_id === currentUserId
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
                     }`}
                   >
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(message.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </p>
                 </div>
               </div>
