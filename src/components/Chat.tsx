@@ -72,7 +72,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
             },
             body: JSON.stringify({ userId: currentUserId, fcmToken: savedToken }),
           }
@@ -190,55 +190,13 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
           try {
             const msg = payload.new;
 
-            // ✅ Prevent duplicates: skip if the sender is the current user
-            if (msg.sender_id === currentUserId) return;
-
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => {
+              // ✅ Prevent duplicates
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
 
             NotificationManager.getInstance().showNotification("New Message", msg.content);
-
-            // Push notification
-            try {
-              await fetch(
-                "https://ptchatsystem.netlify.app/.netlify/functions/send-notification",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                  },
-                  body: JSON.stringify({
-                    recipientId: targetUserId,
-                    senderName: targetProfile?.full_name || "Someone",
-                    message: msg.content,
-                  }),
-                }
-              );
-            } catch (err) {
-              console.error("Push notification error:", err);
-            }
-
-            // Email notification
-            try {
-              await fetch(
-                "https://ptchatsystem.netlify.app/.netlify/functions/send-notification-email",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                  },
-                  body: JSON.stringify({
-                    to: targetProfile?.email,
-                    recipientName: targetProfile?.full_name,
-                    senderName: targetProfile?.full_name || "Someone",
-                    message: msg.content,
-                  }),
-                }
-              );
-            } catch (err) {
-              console.error("Email notification error:", err);
-            }
           } catch (err) {
             console.error("Realtime message handler error:", err);
           }
@@ -249,7 +207,7 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, currentUserId, targetProfile, targetUserId]);
+  }, [chatId]);
 
   useEffect(() => scrollToBottom(), [messages]);
 
@@ -285,8 +243,10 @@ const Chat = ({ currentUserId, targetUserId, onBack }: ChatProps) => {
 
       if (error) throw error;
 
-      // replace temp with actual db message
-      setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? data : m)));
+      // ✅ replace temp with actual db message
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempMessage.id ? data : m))
+      );
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
       setNewMessage(content);
